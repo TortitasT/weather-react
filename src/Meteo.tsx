@@ -6,12 +6,19 @@ function Meteo() {
 
   const latlon = useLatLon();
 
-  // const data = useQuery("meteo")
-
   return (
     <div>
       <latlon.Modal />
       <h1>Meteo</h1>
+      <p>
+        {latlon.latLon ? (
+          <span>
+            {latlon.latLon.lat}, {latlon.latLon.lon}
+          </span>
+        ) : (
+          "Loading..."
+        )}
+      </p>
     </div>
   );
 }

@@ -19,15 +19,16 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { LatLon, loadLatLonFromGeolocation } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "react-query";
 import { z } from "zod";
 
 const formSchema = z.object({
   country: z.string(),
   city: z.string(),
-  zip: z.string(),
 });
 
 export default function useLatLon() {
@@ -36,33 +37,71 @@ export default function useLatLon() {
     defaultValues: {
       country: "Spain",
       city: "Benidorm",
-      zip: "03502",
     },
   });
 
-  const onSubmit = (data: z.infer<typeof formSchema>) => {
-    console.log(data);
+  const [open, setOpen] = useState(false);
+  const [latLon, setLatLon] = useState<LatLon | null>(null);
+
+  const {
+    data: geocodingData,
+    refetch: geocodingRefresh,
+    isLoading: geocodingIsLoading,
+    isError: geocodingIsError,
+  } = useQuery(
+    "geocoding",
+    async () => {
+      const { country, city } = form.getValues();
+
+      const url = new URL("https://nominatim.openstreetmap.org/search");
+      url.searchParams.append("country", country);
+      url.searchParams.append("city", city);
+      url.searchParams.append("format", "json");
+
+      const result = await fetch(url.toString()).then((res) => res.json());
+      return result;
+    },
+    {
+      enabled: false,
+    }
+  );
+
+  const onSubmit = async () => {
+    await geocodingRefresh();
   };
 
-  async function loadLatLonFromGeolocation() {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => {
-        console.log("Latitude is :", position.coords.latitude);
-        console.log("Longitude is :", position.coords.longitude);
-      });
-    } else {
-      console.log("Geolocation is not supported by this browser.");
+  async function load() {
+    if (latLon || open) return;
+
+    try {
+      const latLon = await loadLatLonFromGeolocation();
+      setLatLon(latLon);
+    } catch (error) {
+      setOpen(true);
     }
   }
+
+  load();
+
+  useEffect(() => {
+    if (geocodingData && geocodingData.length > 0 && !geocodingIsError) {
+      const [first] = geocodingData;
+      setLatLon({
+        lat: parseFloat(first.lat),
+        lon: parseFloat(first.lon),
+      });
+      setOpen(false);
+    }
+  }, [geocodingData, geocodingIsError]);
 
   return {
     Modal: () => (
       <Dialog open={open}>
-        {/* <DialogTrigger asChild> */}
-        {/*   <Button>Abrir</Button> */}
-        {/* </DialogTrigger> */}
-
-        <DialogContent>
+        <DialogContent
+          onInteractOutside={(e) => {
+            e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle>
               Parece que no podemos obtener tu localización
@@ -109,36 +148,16 @@ export default function useLatLon() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="zip"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Código postal</FormLabel>
-                    <FormControl>
-                      <Input placeholder="03502" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      El código postal de tu localidad
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <div className="flex gap-2 justify-end">
-                <DialogClose asChild>
-                  <Button type="button" variant="secondary">
-                    Cerrar
-                  </Button>
-                </DialogClose>
-
-                <Button type="submit">Guardar</Button>
+                <Button type="submit" disabled={geocodingIsLoading}>
+                  Guardar
+                </Button>
               </div>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
     ),
+    latLon,
   };
 }
