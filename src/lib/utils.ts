@@ -3,7 +3,7 @@ import { twMerge } from "tailwind-merge";
 
 const GET_CURRENT_POSITION_OPTIONS = {
   enableHighAccuracy: false,
-  timeout: 5000,
+  timeout: 10000,
   maximumAge: Infinity,
 };
 
