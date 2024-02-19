@@ -8,7 +8,7 @@ import {
 } from "./ui/card";
 import { Skeleton } from "./ui/skeleton";
 
-function Temperature({ forecast }: { forecast: Forecast | null }) {
+function Temperature({ forecast }: { forecast: Forecast | undefined }) {
   if (!forecast) {
     return <Skeleton className="h-[125px] w-[250px] rounded-xl" />;
   }
